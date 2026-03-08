@@ -7,7 +7,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, Switch } from 'react-native';
 import { triggerRealSOS } from '../services/realSOSService';
 import { startShakeDetection, stopShakeDetection, isShakeDetectionAvailable } from '../services/shakeDetectionService';
+import { findNearbyPoliceStations, callEmergency } from '../services/policeStationFinderService';
+import { startRecording, stopRecording, getRecordingStatus } from '../services/voiceRecordingService';
+import { isFeatureEnabled } from '../services/advancedFeaturesManager';
 import CountdownModal from '../components/CountdownModal';
+import { Linking } from 'react-native';
 
 export default function CleanSOSScreen() {
   const [loading, setLoading] = useState(false);
@@ -16,6 +20,8 @@ export default function CleanSOSScreen() {
   const [selectedType, setSelectedType] = useState<'kidnap' | 'assault' | 'emergency'>('emergency');
   const [shakeDetectionEnabled, setShakeDetectionEnabled] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<string>('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
 
   // Shake detection setup
   useEffect(() => {
@@ -53,6 +59,19 @@ export default function CleanSOSScreen() {
       stopShakeDetection();
     };
   }, [shakeDetectionEnabled]);
+
+  // Recording timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      setRecordingTime(0);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording]);
 
   // Handle type selection
   const handleTypeSelection = (type: 'kidnap' | 'assault' | 'emergency') => {
@@ -127,6 +146,87 @@ export default function CleanSOSScreen() {
     setShowTypeModal(true);
   };
 
+  // Find nearby police stations
+  const handleFindPolice = async () => {
+    try {
+      Alert.alert('🚓 Finding Police Stations', 'Searching nearby...');
+      const result = await findNearbyPoliceStations(5);
+      
+      if (result.success && result.stations && result.stations.length > 0) {
+        const station = result.stations[0];
+        Alert.alert(
+          '🚓 Nearest Police Station',
+          `${station.name}\n${station.address}\nDistance: ${station.distance}m`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Get Directions',
+              onPress: () => {
+                const url = `https://www.google.com/maps/dir/?api=1&destination=${station.latitude},${station.longitude}`;
+                Linking.openURL(url);
+              }
+            },
+            {
+              text: 'Call 100',
+              onPress: () => {
+                Linking.openURL('tel:100');
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          '🚓 Police Stations',
+          'Feature coming soon! For now, call emergency:\n\n100 (India)\n911 (US)\n112 (EU)',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Call 100',
+              onPress: () => Linking.openURL('tel:100')
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to find police stations');
+    }
+  };
+
+  // Toggle voice recording
+  const handleToggleRecording = async () => {
+    try {
+      if (isRecording) {
+        const result = await stopRecording();
+        setIsRecording(false);
+        if (result.success) {
+          Alert.alert('✅ Recording Stopped', `Recording saved: ${result.uri}`);
+        }
+      } else {
+        const enabled = await isFeatureEnabled('voiceRecording');
+        if (!enabled) {
+          Alert.alert('Feature Disabled', 'Enable Voice Recording in Settings first');
+          return;
+        }
+        
+        const result = await startRecording();
+        if (result.success) {
+          setIsRecording(true);
+          Alert.alert('🎤 Recording Started', 'Audio is being recorded');
+        } else {
+          Alert.alert('Error', result.message);
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Recording failed');
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Civic Shield</Text>
@@ -155,6 +255,32 @@ export default function CleanSOSScreen() {
           </Text>
         </View>
       )}
+
+      {/* Voice Recording Status */}
+      {isRecording && (
+        <View style={styles.recordingBox}>
+          <Text style={styles.recordingLabel}>🎤 Recording: {formatTime(recordingTime)}</Text>
+        </View>
+      )}
+
+      {/* Quick Action Buttons */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleFindPolice}
+        >
+          <Text style={styles.actionButtonText}>🚓 Find Police</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, isRecording && styles.actionButtonActive]}
+          onPress={handleToggleRecording}
+        >
+          <Text style={styles.actionButtonText}>
+            {isRecording ? '⏹️ Stop Recording' : '🎤 Start Recording'}
+          </Text>
+        </TouchableOpacity>
+      </View>
       
       {/* SOS Button */}
       <TouchableOpacity
@@ -361,5 +487,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#2196F3',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  actionButtonActive: {
+    backgroundColor: '#FF5722',
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  recordingBox: {
+    width: '100%',
+    backgroundColor: '#FFEBEE',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#FF5722',
+  },
+  recordingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#D32F2F',
+    textAlign: 'center',
   },
 });

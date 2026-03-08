@@ -38,6 +38,9 @@
         "READ_SMS",
         "RECEIVE_SMS",
         "RECORD_AUDIO",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
         "VIBRATE",
         "INTERNET",
         "ACCESS_NETWORK_STATE",
@@ -63,6 +66,12 @@
         "expo-sensors",
         {
           "motionPermission": "Allow Civic Shield to detect shake gestures for emergency alerts"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow Civic Shield to record audio during emergency"
         }
       ]
     ]
