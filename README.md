@@ -46,6 +46,326 @@ A React Native emergency response application that enables users to send SOS ale
 ## 🏗️ Architecture
 
 ### Technology Stack
+
+**Frontend:**
+- React Native 0.83.2
+- TypeScript 5.9.2
+- Expo SDK 55.0.4
+- React Navigation 6.x
+- React Native Maps 1.26.20
+
+**Native Modules (Android):**
+- Kotlin 2.1.20
+- Android SDK 36 (Target)
+- Android SDK 24 (Minimum)
+- Gradle 9.0.0
+
+**Backend/Services:**
+- Firebase 12.10.0 (Optional - for cloud features)
+- AsyncStorage 2.2.0 (Local storage)
+- Native Android APIs (LocationManager, SmsManager)
+
+**Key Libraries:**
+- expo-location 55.1.2 (GPS location)
+- expo-av 16.0.8 (Audio recording)
+- expo-sensors 55.0.8 (Shake detection)
+- expo-sms 55.0.8 (SMS fallback)
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    React Native App                      │
+│                     (TypeScript)                         │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │   Screens    │  │  Components  │  │  Navigation  │ │
+│  │              │  │              │  │              │ │
+│  │ • SOS        │  │ • Countdown  │  │ • Bottom     │ │
+│  │ • Map        │  │ • Error      │  │   Tabs       │ │
+│  │ • History    │  │   Boundary   │  │              │ │
+│  │ • Settings   │  │              │  │              │ │
+│  └──────────────┘  └──────────────┘  └──────────────┘ │
+│                                                          │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │              Service Layer                        │  │
+│  │                                                   │  │
+│  │  • realSOSService (SOS coordinator)              │  │
+│  │  • nativeLocationService (GPS)                   │  │
+│  │  • nativeAutoSMSService (SMS)                    │  │
+│  │  • voiceRecordingService (Audio)                 │  │
+│  │  • liveLocationTrackingService (Tracking)        │  │
+│  │  • policeStationFinderService (Emergency)        │  │
+│  │  • silentPanicService (Silent mode)              │  │
+│  │  • advancedFeaturesManager (Feature control)     │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                          │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │           Native Modules (Kotlin)                 │  │
+│  │                                                   │  │
+│  │  • LocationModule → Android LocationManager      │  │
+│  │  • SmsModule → Android SmsManager                │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                          │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │              Storage Layer                        │  │
+│  │                                                   │  │
+│  │  • AsyncStorage (Local data)                     │  │
+│  │    - Emergency contacts                          │  │
+│  │    - Incident history                            │  │
+│  │    - Feature settings                            │  │
+│  │    - Location history                            │  │
+│  │                                                   │  │
+│  │  • Firebase Firestore (Optional)                 │  │
+│  │    - Cloud backup                                │  │
+│  │    - Multi-device sync                           │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+**SOS Trigger Flow:**
+```
+User Action (Shake/Button)
+    ↓
+CleanSOSScreen
+    ↓
+realSOSService.triggerRealSOS()
+    ↓
+┌─────────────────────────────────────────┐
+│ 1. Get Location (Native Module)         │
+│    LocationModule.getCurrentLocation()  │
+│    → Android LocationManager            │
+│                                         │
+│ 2. Send SMS (Native Module)            │
+│    SmsModule.sendSms()                  │
+│    → Android SmsManager                 │
+│                                         │
+│ 3. Start Recording (if enabled)        │
+│    voiceRecordingService.startRecording()│
+│    → expo-av                            │
+│                                         │
+│ 4. Start Tracking (if enabled)         │
+│    liveLocationTrackingService.start()  │
+│    → Location updates every 10s         │
+│                                         │
+│ 5. Save to History                     │
+│    AsyncStorage.setItem()               │
+└─────────────────────────────────────────┘
+    ↓
+Success/Error Response
+    ↓
+UI Update (Show result)
+```
+
+### Database Schema
+
+**AsyncStorage (Local Storage):**
+
+```typescript
+// Emergency Contacts
+emergency_contacts: EmergencyContact[]
+{
+  name: string,
+  phone: string
+}
+
+// SOS History
+sos_history: Incident[]
+{
+  type: 'kidnap' | 'assault' | 'emergency',
+  location: {
+    latitude: number,
+    longitude: number,
+    accuracy: number,
+    timestamp: number
+  },
+  mapsLink: string,
+  timestamp: number,
+  smsSuccess: boolean,
+  locationError?: string
+}
+
+// Feature Settings
+advanced_features_enabled: FeatureStatus
+{
+  voiceRecording: boolean,
+  photoCapture: boolean,
+  liveTracking: boolean,
+  policeStationFinder: boolean,
+  silentPanic: boolean
+}
+
+// Location History (per incident)
+live_location_history_{incidentId}: LocationUpdate[]
+{
+  latitude: number,
+  longitude: number,
+  accuracy: number,
+  timestamp: number
+}
+
+// Silent Panic History
+silent_incidents: SilentIncident[]
+{
+  type: 'silent_panic',
+  location: Location,
+  timestamp: number,
+  recordingStarted: boolean,
+  trackingStarted: boolean
+}
+```
+
+**Firebase Firestore (Optional):**
+
+```
+users/{userId}/
+  ├── emergency_contacts/{contactId}
+  │   ├── name: string
+  │   ├── phone: string
+  │   └── addedAt: timestamp
+  │
+  └── incidents/{incidentId}
+      ├── type: string
+      ├── latitude: number
+      ├── longitude: number
+      ├── timestamp: timestamp
+      ├── userId: string
+      └── status: string
+```
+
+### Third-Party Integrations
+
+**Core Services:**
+- **Google Maps** - Location visualization and directions
+  - Maps API for incident display
+  - Directions API for police station navigation
+  - Geocoding API (future feature)
+
+**Optional Services:**
+- **Firebase** (Optional - not required for core functionality)
+  - Authentication (anonymous auth)
+  - Firestore (cloud backup)
+  - Cloud Functions (future feature)
+  - Analytics (future feature)
+
+**Native Android APIs:**
+- **LocationManager** - GPS location services
+- **SmsManager** - SMS sending
+- **AudioRecord** - Voice recording (via expo-av)
+- **Vibrator** - Haptic feedback
+- **Accelerometer** - Shake detection (via expo-sensors)
+
+**No External APIs Required:**
+- App works completely offline
+- No API keys needed for core features
+- No subscription services
+- No cloud dependencies
+
+### Security & Privacy
+
+**Data Storage:**
+- All sensitive data stored locally (AsyncStorage)
+- No data sent to external servers (except optional Firebase)
+- Emergency contacts encrypted at rest
+- No user tracking or analytics
+
+**Permissions:**
+- Location: For GPS coordinates
+- SMS: For automatic emergency alerts
+- Microphone: For voice recording
+- Camera: For photo capture (future)
+- Vibrate: For haptic feedback
+- Internet: For maps and optional cloud sync
+
+**Privacy Features:**
+- No user account required
+- Anonymous authentication (if Firebase used)
+- Local-first architecture
+- No data collection
+- Open source code (auditable)
+
+### Performance Optimizations
+
+**Location:**
+- Uses last known location for instant results
+- Falls back to network location if GPS slow
+- 15-second timeout prevents hanging
+- Caches location for quick access
+
+**SMS:**
+- Native module for direct sending
+- No messaging app required
+- Batch sending to multiple contacts
+- Automatic message splitting for long texts
+
+**Storage:**
+- AsyncStorage for fast local access
+- Incident history limited to last 50
+- Location history limited to last 100 per incident
+- Automatic cleanup of old data
+
+**UI:**
+- React Native for native performance
+- Minimal re-renders
+- Lazy loading of screens
+- Optimized images and assets
+
+### Deployment
+
+**Build Process:**
+```bash
+# Install dependencies
+npm install
+
+# Generate native code
+npx expo prebuild --clean
+
+# Build release APK
+cd android
+./gradlew assembleRelease
+
+# Output
+android/app/build/outputs/apk/release/app-release.apk
+```
+
+**Requirements:**
+- Node.js 18+
+- Android SDK 24+
+- Java JDK 17
+- Gradle 9.0.0
+
+**Distribution:**
+- Direct APK installation
+- Google Play Store (future)
+- F-Droid (future)
+
+### Scalability
+
+**Current Capacity:**
+- Unlimited emergency contacts
+- 50 incidents in history
+- 100 location updates per incident
+- No server-side limitations
+
+**Future Scaling:**
+- Cloud sync for multi-device
+- Real-time location sharing
+- Group emergency alerts
+- Community incident reporting
+
+## 🏗️ Architecture
+
+### Technology Stack
 - **Framework**: React Native with Expo
 - **Language**: TypeScript
 - **Navigation**: React Navigation
