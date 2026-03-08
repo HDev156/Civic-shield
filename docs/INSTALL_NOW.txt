@@ -1,0 +1,45 @@
+═══════════════════════════════════════════════════════════════
+                    INSTALL BUILD 15 NOW
+═══════════════════════════════════════════════════════════════
+
+APK LOCATION:
+android/app/build/outputs/apk/release/app-release.apk (71 MB)
+
+QUICK INSTALL (Copy & Paste):
+───────────────────────────────────────────────────────────────
+
+# 1. Check if phone is connected
+~/Library/Android/sdk/platform-tools/adb devices
+
+# 2. Install APK
+cd ~/Civic\ Shield/civic-shield
+~/Library/Android/sdk/platform-tools/adb install -r android/app/build/outputs/apk/release/app-release.apk
+
+# 3. View logs (optional)
+~/Library/Android/sdk/platform-tools/adb logcat | grep -i "civic\|location\|sms"
+
+───────────────────────────────────────────────────────────────
+
+IF DEVICE NOT SHOWING:
+1. Connect USB cable
+2. On phone: Settings → About Phone → Tap "Build Number" 7 times
+3. On phone: Settings → Developer Options → Enable "USB Debugging"
+4. On phone: When popup appears, tap "Allow"
+5. Run: ~/Library/Android/sdk/platform-tools/adb devices
+
+AFTER INSTALL:
+1. Open app
+2. Grant all permissions (location, SMS, microphone)
+3. Go to Settings → Add contact: +918527680688
+4. Go to SOS → Enable shake detection
+5. Shake phone or press SOS button
+6. Check if SMS arrives with location
+
+WHAT SHOULD WORK:
+✓ App opens without crashing
+✓ Real GPS location (not fake)
+✓ SMS sent to your number
+✓ Google Maps link in SMS
+✓ History shows incidents
+
+═══════════════════════════════════════════════════════════════

@@ -31,11 +31,24 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
 *.tsbuildinfo
 
 # generated native folders
-/ios
-/android
+# /ios - commented out to include native modules
+# /android - commented out to include native SMS module
+
+# But ignore build outputs
+android/app/build/
+android/.gradle/
+android/build/
+android/app/release/
+android/app/debug/
+*.apk
+*.aab
+
+# Ignore local properties (contains SDK path)
+android/local.properties

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "civic-shield",
+    "name": "Civic Shield",
     "slug": "civic-shield",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,7 +12,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.civicshield.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to report emergencies and show nearby incidents.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,10 +26,45 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.civicshield.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "SEND_SMS",
+        "READ_SMS",
+        "RECEIVE_SMS",
+        "RECORD_AUDIO",
+        "VIBRATE",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "WAKE_LOCK"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2f0047bc-8215-4671-ab41-a927a28e6366"
+      }
+    },
+    "plugins": [
+      "expo-location",
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow Civic Shield to detect shake gestures for emergency alerts"
+        }
+      ]
+    ]
   }
 }
